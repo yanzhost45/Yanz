@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pemverifikasi OTP</title>
+  <script>
+    // Fungsi untuk mengirimkan permintaan OTP
+    async function requestOTP() {
+      const msisdn = document.getElementById('msisdn').value;
+
+      const response = await fetch('https://web-otp-xl.vercel.app/api/otp/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ msisdn: msisdn })
+      });
+
+      const data = await response.json();
+      alert(data.message); // Tampilkan pesan dari server
+    }
+
+    // Fungsi untuk memverifikasi OTP
+    async function verifyOTP() {
+      const msisdn = document.getElementById('msisdn_verify').value;
+      const otp = document.getElementById('otp').value;
+
+      const response = await fetch('https://web-otp-xl.vercel.app/api/otp/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ msisdn: msisdn, otp: otp })
+      });
+
+      const data = await response.json();
+      alert(data.message); // Tampilkan pesan dari server
+    }
+  </script>
+</head>
+<body>
+  <h1>Formulir OTP</h1>
+
+  <!-- Formulir untuk meminta OTP -->
+  <section>
+    <h2>Request OTP</h2>
+    <label for="msisdn">Nomor Telepon:</label>
+    <input type="text" id="msisdn" name="msisdn" placeholder="Masukkan nomor telepon" required>
+    <button onclick="requestOTP()">Kirim OTP</button>
+  </section>
+
+  <hr>
+
+  <!-- Formulir untuk memverifikasi OTP -->
+  <section>
+    <h2>Verifikasi OTP</h2>
+    <label for="msisdn_verify">Nomor Telepon:</label>
+    <input type="text" id="msisdn_verify" name="msisdn_verify" placeholder="Masukkan nomor telepon" required>
+    <br><br>
+    <label for="otp">Kode OTP:</label>
+    <input type="text" id="otp" name="otp" placeholder="Masukkan OTP" required>
+    <br><br>
+    <button onclick="verifyOTP()">Verifikasi OTP</button>
+  </section>
+
+</body>
+</html>
