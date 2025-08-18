@@ -15,13 +15,14 @@
 
     h1, h2 {
       color: #4CAF50;
+      text-align: center;
     }
 
-    section {
-      background-color: white;
-      padding: 20px;
-      margin: 20px auto;
+    .container {
       max-width: 400px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: white;
       border-radius: 8px;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     }
@@ -57,10 +58,6 @@
       background-color: #45a049;
     }
 
-    hr {
-      margin: 20px 0;
-    }
-
     .message {
       text-align: center;
       margin-top: 20px;
@@ -70,11 +67,22 @@
       font-size: 1.2em;
       color: #4CAF50;
     }
+
+    .hidden {
+      display: none;
+    }
   </style>
   <script>
+    let verificationCode = ""; // Tempat untuk menyimpan OTP sementara
+
     // Fungsi untuk mengirimkan permintaan OTP
     async function requestOTP() {
       const msisdn = document.getElementById('msisdn').value;
+
+      if (!msisdn) {
+        alert("Nomor telepon tidak boleh kosong!");
+        return;
+      }
 
       const response = await fetch('https://web-otp-xl.vercel.app/api/otp/request', {
         method: 'POST',
@@ -85,51 +93,52 @@
       });
 
       const data = await response.json();
-      alert(data.message); // Tampilkan pesan dari server
+      if (data.status === "success") {
+        alert("OTP telah dikirim ke nomor " + msisdn);
+        verificationCode = data.otp;  // Menyimpan kode OTP
+        document.getElementById('otpSection').classList.remove('hidden');
+      } else {
+        alert(data.message);
+      }
     }
 
     // Fungsi untuk memverifikasi OTP
     async function verifyOTP() {
-      const msisdn = document.getElementById('msisdn_verify').value;
       const otp = document.getElementById('otp').value;
 
-      const response = await fetch('https://web-otp-xl.vercel.app/api/otp/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ msisdn: msisdn, otp: otp })
-      });
-
-      const data = await response.json();
-      alert(data.message); // Tampilkan pesan dari server
+      if (otp === verificationCode) {
+        document.getElementById('verificationMessage').innerHTML = "<p>Verifikasi berhasil! Nomor telepon terverifikasi.</p>";
+      } else {
+        alert("OTP salah. Coba lagi.");
+      }
     }
   </script>
 </head>
 <body>
-  <h1>Formulir OTP</h1>
+  <h1>Pemverifikasi OTP</h1>
 
-  <!-- Formulir untuk meminta OTP -->
-  <section>
-    <h2>Request OTP</h2>
-    <label for="msisdn">Nomor Telepon:</label>
-    <input type="text" id="msisdn" name="msisdn" placeholder="Masukkan nomor telepon" required>
-    <button onclick="requestOTP()">Kirim OTP</button>
-  </section>
+  <div class="container">
+    <!-- Formulir untuk meminta OTP -->
+    <section>
+      <h2>Request OTP</h2>
+      <label for="msisdn">Nomor Telepon:</label>
+      <input type="text" id="msisdn" name="msisdn" placeholder="Masukkan nomor telepon" required>
+      <button onclick="requestOTP()">Kirim OTP</button>
+    </section>
 
-  <hr>
+    <!-- Formulir untuk memasukkan OTP, tersembunyi sampai OTP dikirim -->
+    <section id="otpSection" class="hidden">
+      <h2>Verifikasi OTP</h2>
+      <label for="otp">Masukkan OTP:</label>
+      <input type="text" id="otp" name="otp" placeholder="Masukkan OTP" required>
+      <button onclick="verifyOTP()">Verifikasi OTP</button>
+    </section>
 
-  <!-- Formulir untuk memverifikasi OTP -->
-  <section>
-    <h2>Verifikasi OTP</h2>
-    <label for="msisdn_verify">Nomor Telepon:</label>
-    <input type="text" id="msisdn_verify" name="msisdn_verify" placeholder="Masukkan nomor telepon" required>
-    <br><br>
-    <label for="otp">Kode OTP:</label>
-    <input type="text" id="otp" name="otp" placeholder="Masukkan OTP" required>
-    <br><br>
-    <button onclick="verifyOTP()">Verifikasi OTP</button>
-  </section>
+    <!-- Pesan setelah verifikasi -->
+    <section id="verificationMessage" class="message">
+      <!-- Pesan verifikasi akan ditampilkan di sini -->
+    </section>
+  </div>
 
 </body>
 </html>
