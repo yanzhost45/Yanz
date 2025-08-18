@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pemverifikasi OTP</title>
+  <title>Verifikasi OTP</title>
   <style>
     body {
       font-family: 'Arial', sans-serif;
@@ -13,13 +13,13 @@
       color: #333;
     }
 
-    h1, h2 {
+    h1 {
       color: #4CAF50;
       text-align: center;
     }
 
     .container {
-      max-width: 400px;
+      max-width: 500px;
       margin: 20px auto;
       padding: 20px;
       background-color: white;
@@ -34,12 +34,26 @@
     }
 
     input[type="text"] {
-      width: 100%;
+      width: calc(100% - 100px);
       padding: 10px;
       margin-bottom: 20px;
       border: 2px solid #ccc;
       border-radius: 4px;
       box-sizing: border-box;
+    }
+
+    .otp-button {
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .otp-button:hover {
+      background-color: #45a049;
     }
 
     button {
@@ -68,9 +82,6 @@
       color: #4CAF50;
     }
 
-    .hidden {
-      display: none;
-    }
   </style>
   <script>
     let verificationCode = ""; // Tempat untuk menyimpan OTP sementara
@@ -96,17 +107,10 @@
       if (data.status === "success") {
         alert("OTP telah dikirim ke nomor " + msisdn);
         verificationCode = data.otp;  // Menyimpan kode OTP
-        updateFormForVerification(); // Ubah form untuk OTP dan Verifikasi
+        document.getElementById('otpSection').classList.remove('hidden'); // Menampilkan form OTP
       } else {
         alert(data.message);
       }
-    }
-
-    // Fungsi untuk mengubah form setelah menekan tombol "Kirim OTP"
-    function updateFormForVerification() {
-      // Mengubah tampilan form
-      document.getElementById('requestForm').classList.add('hidden');
-      document.getElementById('verificationForm').classList.remove('hidden');
     }
 
     // Fungsi untuk memverifikasi OTP
@@ -122,20 +126,18 @@
   </script>
 </head>
 <body>
-  <h1>Pemverifikasi OTP</h1>
+  <h1>Verifikasi OTP</h1>
 
   <div class="container">
     <!-- Formulir untuk meminta OTP -->
-    <section id="requestForm">
-      <h2>Request OTP</h2>
+    <section>
       <label for="msisdn">Nomor Telepon:</label>
       <input type="text" id="msisdn" name="msisdn" placeholder="Masukkan nomor telepon" required>
-      <button onclick="requestOTP()">Kirim OTP</button>
+      <button class="otp-button" onclick="requestOTP()">Kirim OTP</button>
     </section>
 
-    <!-- Formulir untuk memasukkan OTP dan Verifikasi -->
-    <section id="verificationForm" class="hidden">
-      <h2>Verifikasi OTP</h2>
+    <!-- Formulir untuk memasukkan OTP -->
+    <section id="otpSection" class="hidden">
       <label for="otp">Masukkan OTP:</label>
       <input type="text" id="otp" name="otp" placeholder="Masukkan OTP" required>
       <button onclick="verifyOTP()">Verifikasi OTP</button>
