@@ -96,10 +96,17 @@
       if (data.status === "success") {
         alert("OTP telah dikirim ke nomor " + msisdn);
         verificationCode = data.otp;  // Menyimpan kode OTP
-        document.getElementById('otpSection').classList.remove('hidden');
+        updateFormForVerification(); // Ubah form untuk OTP dan Verifikasi
       } else {
         alert(data.message);
       }
+    }
+
+    // Fungsi untuk mengubah form setelah menekan tombol "Kirim OTP"
+    function updateFormForVerification() {
+      // Mengubah tampilan form
+      document.getElementById('requestForm').classList.add('hidden');
+      document.getElementById('verificationForm').classList.remove('hidden');
     }
 
     // Fungsi untuk memverifikasi OTP
@@ -119,15 +126,15 @@
 
   <div class="container">
     <!-- Formulir untuk meminta OTP -->
-    <section>
+    <section id="requestForm">
       <h2>Request OTP</h2>
       <label for="msisdn">Nomor Telepon:</label>
       <input type="text" id="msisdn" name="msisdn" placeholder="Masukkan nomor telepon" required>
       <button onclick="requestOTP()">Kirim OTP</button>
     </section>
 
-    <!-- Formulir untuk memasukkan OTP, tersembunyi sampai OTP dikirim -->
-    <section id="otpSection" class="hidden">
+    <!-- Formulir untuk memasukkan OTP dan Verifikasi -->
+    <section id="verificationForm" class="hidden">
       <h2>Verifikasi OTP</h2>
       <label for="otp">Masukkan OTP:</label>
       <input type="text" id="otp" name="otp" placeholder="Masukkan OTP" required>
