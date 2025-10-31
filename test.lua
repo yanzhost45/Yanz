@@ -1260,10 +1260,10 @@ local function adjustForScreen()
     local sg = workspace.CurrentCamera.ViewportSize
     if sg.X < 900 then
         MainFrame.Size = UDim2.new(0, 420, 0, 340)
-        MainFrame.Position = UDim2.new(0.5, -210, 0.5, -170)
+        -- Position tetap UDim2.new(0.5, 0, 0.5, 0) karena AnchorPoint sudah centering
     else
         MainFrame.Size = UDim2.new(0, 500, 0, 360)
-        MainFrame.Position = UDim2.new(0.5, -250, 0.5, -180)
+        -- Position tetap UDim2.new(0.5, 0, 0.5, 0)
     end
 end
 adjustForScreen()
