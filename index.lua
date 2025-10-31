@@ -9,10 +9,11 @@ local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local camera = workspace.CurrentCamera
+local camera = Workspace.CurrentCamera
 
 -- Theme
 local BG_COLOR = Color3.fromRGB(15, 25, 35)
@@ -59,8 +60,9 @@ ScreenGui.Name = "AutoFishingRimuruGui"
 ScreenGui.Parent = playerGui
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- Logo (top-right chibi; replace id if you have asset)
+-- Logo (top-right chibi; using a default asset)
 local LogoBtn = Instance.new("ImageButton")
 LogoBtn.Name = "RimuruLogo"
 LogoBtn.Size = UDim2.new(0,64,0,64)
@@ -68,7 +70,7 @@ LogoBtn.Position = UDim2.new(1,-86,0,20)
 LogoBtn.BackgroundColor3 = Color3.fromRGB(10,18,26)
 LogoBtn.Parent = ScreenGui
 Instance.new("UICorner", LogoBtn).CornerRadius = UDim.new(0,12)
-LogoBtn.Image = "rbxassetid://0" -- replace with your chibi asset id
+LogoBtn.Image = "rbxassetid://6533429165" -- Using a default fishing rod image
 
 -- MainFrame (center)
 local MainFrame = Instance.new("Frame")
@@ -81,8 +83,38 @@ MainFrame.BackgroundTransparency = 0.15
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 MainFrame.Active = true
-MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0,14)
+
+-- Drag functionality
+local dragging = false
+local dragStart = nil
+local startPos = nil
+
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale, 
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale, 
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
 
 -- Title
 local TitleBar = Instance.new("Frame", MainFrame)
@@ -415,42 +447,101 @@ local function buildPlayer()
     end)
 end
 
--- Build Teleport tab
+-- Build Teleport tab (using the new scrolling implementation)
 local function buildTeleport()
     clearContent()
-    local title = Instance.new("TextLabel", Content); title.Size = UDim2.new(1,0,0,26); title.BackgroundTransparency = 1; title.Font = Enum.Font.GothamBold; title.Text = "Teleport"; title.TextColor3 = ACCENT; title.TextSize = 16; title.TextXAlignment = Enum.TextXAlignment.Left
-    local cont = Instance.new("Frame", Content); cont.Size = UDim2.new(1,0,0,260); cont.Position = UDim2.new(0,0,0,36); cont.BackgroundTransparency = 1
+    
+    -- 🧭 TELEPORT TAB (scrollable & mobile friendly)
+    local TeleportTab = Instance.new("Frame")
+    TeleportTab.Name = "TeleportTab"
+    TeleportTab.BackgroundTransparency = 1
+    TeleportTab.Size = UDim2.new(1, 0, 1, -40)
+    TeleportTab.Position = UDim2.new(0, 0, 0, 40)
+    TeleportTab.Visible = true
+    TeleportTab.Parent = Content
 
-    -- Copy position button
-    local copyBtn = Instance.new("TextButton", cont); copyBtn.Size = UDim2.new(0,240,0,36); copyBtn.Position = UDim2.new(0,0,0,6); copyBtn.Text = "📋 Copy Player Position"; copyBtn.Font = Enum.Font.GothamBold; copyBtn.TextColor3 = TEXT_COLOR
-    Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0,8)
-    local copyStatus = Instance.new("TextLabel", cont); copyStatus.Size = UDim2.new(1,0,0,18); copyStatus.Position = UDim2.new(0,0,0,48); copyStatus.BackgroundTransparency = 1; copyStatus.Font = Enum.Font.Gotham; copyStatus.TextColor3 = Color3.fromRGB(200,200,200)
+    -- ScrollingFrame buat konten
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Name = "TeleportScroll"
+    Scroll.Size = UDim2.new(1, -10, 1, -50)
+    Scroll.Position = UDim2.new(0, 5, 0, 10)
+    Scroll.BackgroundTransparency = 1
+    Scroll.BorderSizePixel = 0
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Scroll.ScrollBarThickness = 5
+    Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+    Scroll.MidImage = "rbxassetid://6883017081" -- transparan halus
+    Scroll.ScrollBarImageColor3 = Color3.fromRGB(90, 200, 255)
+    Scroll.Active = true
+    Scroll.ClipsDescendants = true
+    Scroll.ScrollingEnabled = true
+    Scroll.Parent = TeleportTab
 
-    copyBtn.MouseButton1Click:Connect(function()
-        local char = player.Character
-        if not char or not char.PrimaryPart then copyStatus.Text = "Character not found." ; return end
-        local v3 = char.PrimaryPart.Position
-        local formatted = string.format("Vector3.new(%.3f, %.3f, %.3f)", v3.X, v3.Y, v3.Z)
-        local ok = false
-        pcall(function() if setclipboard then setclipboard(formatted); ok=true end end)
-        if ok then copyStatus.Text = "Copied to clipboard: "..formatted else copyStatus.Text = "Clipboard not supported. Pos: "..formatted end
-    end)
+    -- Layout biar rapi vertikal
+    local list = Instance.new("UIListLayout", Scroll)
+    list.Padding = UDim.new(0, 5)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    list.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- presets list
-    local y = 80
-    for name, cf in pairs(TELEPORT_PRESETS) do
-        local b = Instance.new("TextButton", cont)
-        b.Size = UDim2.new(0,220,0,30); b.Position = UDim2.new(0,0,0,y); b.Text = "Teleport: "..name; b.Font = Enum.Font.Gotham; b.TextColor3 = TEXT_COLOR
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0,6)
-        b.MouseButton1Click:Connect(function()
-            -- attempt teleport
-            local char = player.Character
-            if char and char.PrimaryPart then
-                pcall(function() char:SetPrimaryPartCFrame(cf) end)
+    -- Fungsi tambah tombol teleport
+    local function addTeleportButton(name, pos)
+        local btn = Instance.new("TextButton")
+        btn.Text = name
+        btn.Size = UDim2.new(0.9, 0, 0, 35)
+        btn.BackgroundColor3 = Color3.fromRGB(40, 60, 80)
+        btn.TextColor3 = Color3.fromRGB(200, 230, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 14
+        btn.AutoButtonColor = true
+        btn.Parent = Scroll
+        btn.BackgroundTransparency = 0.15
+        btn.BorderSizePixel = 0
+        btn.TextStrokeTransparency = 0.6
+        btn.TextStrokeColor3 = Color3.fromRGB(100, 150, 255)
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+        
+        btn.MouseButton1Click:Connect(function()
+            local plr = game.Players.LocalPlayer
+            if plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                plr.Character:MoveTo(pos)
             end
         end)
-        y = y + 36
     end
+
+    -- Tombol "Copy Position"
+    local copyBtn = Instance.new("TextButton")
+    copyBtn.Text = "📋 Salin Posisi Sekarang"
+    copyBtn.Size = UDim2.new(0.9, 0, 0, 35)
+    copyBtn.BackgroundColor3 = Color3.fromRGB(70, 110, 160)
+    copyBtn.TextColor3 = Color3.fromRGB(220, 250, 255)
+    copyBtn.Font = Enum.Font.GothamBold
+    copyBtn.TextSize = 14
+    copyBtn.AutoButtonColor = true
+    copyBtn.Parent = Scroll
+    Instance.new("UICorner", copyBtn).CornerRadius = UDim.new(0, 8)
+    copyBtn.MouseButton1Click:Connect(function()
+        local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp and setclipboard then
+            setclipboard(string.format("Vector3.new(%.2f, %.2f, %.2f)", hrp.Position.X, hrp.Position.Y, hrp.Position.Z))
+        end
+    end)
+
+    -- Add preset locations from TELEPORT_PRESETS
+    for name, cf in pairs(TELEPORT_PRESETS) do
+        addTeleportButton(name, cf.Position)
+    end
+    
+    -- Contoh preset tambahan
+    addTeleportButton("Spawn", Vector3.new(0, 10, 0))
+    addTeleportButton("Fishing Spot", Vector3.new(120, 12, -80))
+    addTeleportButton("Shop", Vector3.new(-50, 10, 30))
+    addTeleportButton("Mountain Top", Vector3.new(250, 200, 150))
+    addTeleportButton("Hidden Cave", Vector3.new(-200, -20, 75))
+    addTeleportButton("Secret Room", Vector3.new(300, 40, 120))
+    addTeleportButton("Harbor", Vector3.new(75, 9, -220))
+    addTeleportButton("Boss Area", Vector3.new(-100, 50, 300))
+    addTeleportButton("Treasure", Vector3.new(150, -5, -400))
 end
 
 -- Settings (anti-lag)
@@ -465,17 +556,17 @@ end
 local function enableAntiLag()
     if AntiLagState.enabled then return end
     AntiLagState.enabled = true; AntiLagState.modified = {}
-    for _,v in ipairs(workspace:GetDescendants()) do applyAntiLagToDescendant(v) end
-    local terrain = workspace:FindFirstChildOfClass("Terrain")
+    for _,v in ipairs(Workspace:GetDescendants()) do applyAntiLagToDescendant(v) end
+    local terrain = Workspace:FindFirstChildOfClass("Terrain")
     if terrain then AntiLagState.terrainOld = {WaterReflectance=terrain.WaterReflectance, WaterTransparency=terrain.WaterTransparency, WaterWaveSize=terrain.WaterWaveSize, WaterWaveSpeed=terrain.WaterWaveSpeed}; pcall(function() terrain.WaterReflectance=0; terrain.WaterTransparency=1; terrain.WaterWaveSize=0; terrain.WaterWaveSpeed=0 end) end
-    descendantConnection = workspace.DescendantAdded:Connect(function(v) if AntiLagState.enabled then applyAntiLagToDescendant(v) end end)
+    descendantConnection = Workspace.DescendantAdded:Connect(function(v) if AntiLagState.enabled then applyAntiLagToDescendant(v) end end)
 end
 local function disableAntiLag()
     if not AntiLagState.enabled then return end
     AntiLagState.enabled = false
     for _,rec in ipairs(AntiLagState.modified) do pcall(function() if rec.inst and rec.inst.Parent then if rec.prop=="Transparency" then rec.inst.Transparency=rec.old elseif rec.prop=="Enabled" then rec.inst.Enabled=rec.old end end end) end
     AntiLagState.modified = {}
-    if AntiLagState.terrainOld then local terrain = workspace:FindFirstChildOfClass("Terrain"); if terrain then pcall(function() terrain.WaterReflectance=AntiLagState.terrainOld.WaterReflectance; terrain.WaterTransparency=AntiLagState.terrainOld.WaterTransparency; terrain.WaterWaveSize=AntiLagState.terrainOld.WaterWaveSize; terrain.WaterWaveSpeed=AntiLagState.terrainOld.WaterWaveSpeed end) end; AntiLagState.terrainOld = nil end
+    if AntiLagState.terrainOld then local terrain = Workspace:FindFirstChildOfClass("Terrain"); if terrain then pcall(function() terrain.WaterReflectance=AntiLagState.terrainOld.WaterReflectance; terrain.WaterTransparency=AntiLagState.terrainOld.WaterTransparency; terrain.WaterWaveSize=AntiLagState.terrainOld.WaterWaveSize; terrain.WaterWaveSpeed=AntiLagState.terrainOld.WaterWaveSpeed end) end; AntiLagState.terrainOld = nil end
     if descendantConnection then descendantConnection:Disconnect(); descendantConnection = nil end
 end
 
@@ -594,4 +685,4 @@ camera:GetPropertyChangedSignal("ViewportSize"):Connect(adjustForScreen)
 -- cleanup on leave
 player.AncestryChanged:Connect(function(_, parent) if not parent then pcall(function() if descendantConnection then descendantConnection:Disconnect() end end) end end)
 
-print("Auto Fishing Rimuru UI — final (delay persisted in yanz-script.json) ✅")
+print("Auto Fishing Rimuru UI — updated with new teleport tab ✅")
