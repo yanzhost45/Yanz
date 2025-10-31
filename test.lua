@@ -432,39 +432,61 @@ local function buildMain()
         end)
         saveState()
 
-        while isFishing do
-            -- check global stop requests
-            if getgenv().AutoFishingStopRequested then
-                isFishing = false
-                break
-            end
+while isFishing do
+    if getgenv().AutoFishingStopRequested then
+        isFishing = false
+        break
+    end
 
-            pcall(function()
-                if net["RF/ChargeFishingRod"] then
-                    net["RF/ChargeFishingRod"]:InvokeServer(workspace:GetServerTimeNow())
-                end
-            end)
-            pcall(function()
-                if net["RF/RequestFishingMinigameStarted"] then
-                    net["RF/RequestFishingMinigameStarted"]:InvokeServer(-0.3, 0.2, workspace:GetServerTimeNow())
-                end
-            end)
-
-            local delayVal = tonumber(delayInput.Text) or 1.5
-            task.wait(delayVal)
-
-            pcall(function()
-                if net["RE/FishingCompleted"] then
-                    net["RE/FishingCompleted"]:FireServer()
-                end
-            end)
-            task.wait(0.3)
-            pcall(function()
-                if net["RF/CancelFishingInputs"] then
-                    net["RF/CancelFishingInputs"]:InvokeServer()
-                end
-            end)
+    pcall(function()
+        if net["RF/ChargeFishingRod"] then
+            net["RF/ChargeFishingRod"]:InvokeServer(workspace:GetServerTimeNow())
         end
+    end)
+    if not isFishing or getgenv().AutoFishingStopRequested then break end
+
+    pcall(function()
+        if net["RF/RequestFishingMinigameStarted"] then
+            net["RF/RequestFishingMinigameStarted"]:InvokeServer(-0.3, 0.2, workspace:GetServerTimeNow())
+        end
+    end)
+    if not isFishing or getgenv().AutoFishingStopRequested then break end
+
+    local delayVal = tonumber(delayInput.Text) or 1.5
+    local startTime = tick()
+    while tick() - startTime < delayVal do
+        if not isFishing or getgenv().AutoFishingStopRequested then
+            isFishing = false
+            break
+        end
+        task.wait(0.05)
+    end
+    if not isFishing then break end
+
+    pcall(function()
+        if net["RE/FishingCompleted"] then
+            net["RE/FishingCompleted"]:FireServer()
+        end
+    end)
+    if not isFishing or getgenv().AutoFishingStopRequested then break end
+
+    local miniDelay = tick()
+    while tick() - miniDelay < 0.3 do
+        if not isFishing or getgenv().AutoFishingStopRequested then
+            isFishing = false
+            break
+        end
+        task.wait(0.05)
+    end
+    if not isFishing then break end
+
+    pcall(function()
+        if net["RF/CancelFishingInputs"] then
+            net["RF/CancelFishingInputs"]:InvokeServer()
+        end
+    end)
+end
+
 
         -- cleanup on stop
         isFishing = false
