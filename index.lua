@@ -307,7 +307,7 @@ local function buildMain()
             end)
             if not isFishing or getgenv().AutoFishingStopRequested then break end
 
-            local delayVal = tonumber(delayInput.Text) or (persisted.delay or 0.5)
+            local delayVal = tonumber(delayInput.Text) or (persisted.delay or 1.5)
             local sT = tick()
             while tick() - sT < delayVal do
                 if getgenv().AutoFishingStopRequested then isFishing = false; break end
