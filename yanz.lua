@@ -1,5 +1,5 @@
--- Auto Fishing Rimuru UI (by bubub) 🎣✨
--- Paste langsung di executor (Synapse/Fluxus/ArceusX...)
+-- Auto Fishing Rimuru UI (by bubub yanz) 🎣✨
+-- Updated: persistent state save (getgenv + writefile fallback)
 
 -- Services
 local Players = game:GetService("Players")
@@ -8,6 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -17,6 +18,60 @@ local BG_COLOR = Color3.fromRGB(15, 25, 35)         -- deep blue
 local ACCENT = Color3.fromRGB(123, 232, 255)        -- rimuru cyan
 local ACCENT2 = Color3.fromRGB(80,200,255)
 local TEXT_COLOR = Color3.fromRGB(235, 245, 255)
+
+-- Persistence helpers (getgenv + file fallback)
+if not getgenv then
+    getgenv = function() return _G end
+end
+
+getgenv().AutoFishingRunning = getgenv().AutoFishingRunning or false
+getgenv().AutoFishingStopRequested = getgenv().AutoFishingStopRequested or false
+
+local STATE_FILENAME = "autofish_state.json"
+
+local function saveStateToFile(stateTable)
+    if writefile and HttpService then
+        pcall(function()
+            writefile(STATE_FILENAME, HttpService:JSONEncode(stateTable))
+        end)
+    end
+end
+
+local function loadStateFromFile()
+    if readfile and HttpService then
+        local ok, content = pcall(function() return readfile(STATE_FILENAME) end)
+        if ok and content then
+            local suc, decoded = pcall(function() return HttpService:JSONDecode(content) end)
+            if suc and type(decoded) == "table" then
+                return decoded
+            end
+        end
+    end
+    return nil
+end
+
+local function saveState()
+    local state = {
+        running = getgenv().AutoFishingRunning == true
+    }
+    -- set getgenv (already set)
+    pcall(function() getgenv().AutoFishingRunning = state.running end)
+    saveStateToFile(state)
+end
+
+local function loadState()
+    -- prefer getgenv (already live), else fallback to file
+    if getgenv().AutoFishingRunning then
+        return { running = true }
+    end
+    local f = loadStateFromFile()
+    if f and type(f.running) == "boolean" then
+        -- restore into getgenv
+        pcall(function() getgenv().AutoFishingRunning = f.running end)
+        return f
+    end
+    return { running = false }
+end
 
 -- Remove previous GUI if exists
 if playerGui:FindFirstChild("AutoFishingRimuruGui") then
@@ -250,6 +305,17 @@ local function buildMain()
     Instance.new("UICorner", notifToggle).CornerRadius = UDim.new(0, 6)
     local notifOn = true
 
+    -- external running indicator
+    local externalLabel = Instance.new("TextLabel", container)
+    externalLabel.Size = UDim2.new(1, -10, 0, 18)
+    externalLabel.Position = UDim2.new(0, 230, 0, 12)
+    externalLabel.BackgroundTransparency = 1
+    externalLabel.Font = Enum.Font.Gotham
+    externalLabel.TextSize = 12
+    externalLabel.TextColor3 = Color3.fromRGB(200,200,200)
+    externalLabel.TextXAlignment = Enum.TextXAlignment.Left
+    externalLabel.Text = ""
+
     -- Attach functional logic for auto fishing (adapted from original)
     local net
     local ok, nres = pcall(function()
@@ -283,10 +349,20 @@ local function buildMain()
         end)
     end
 
-    -- state variables
+    -- state variables (local view)
     local isFishing = false
     local fishCount = 0
     local startTime = 0
+
+    -- load stored state and reflect
+    local loaded = loadState()
+    if loaded and loaded.running then
+        -- indicate external running state
+        externalLabel.Text = "Detected: Auto Fishing is running (from previous session)"
+        startBtn.Text = "⏸ Stop Auto Fish (Running)"
+    else
+        externalLabel.Text = ""
+    end
 
     local function ShowNotification(fishName, weight)
         if not notifOn then return end
@@ -323,7 +399,7 @@ local function buildMain()
         end
     end)
 
-    -- auto fish loop
+    -- auto fish loop (respects getgenv flags)
     local function AutoFishLoop()
         if not net then
             startBtn.Text = "⚠ Net not found"
@@ -331,6 +407,17 @@ local function buildMain()
             startBtn.Text = "▶ Start Auto Fish"
             return
         end
+
+        -- if another execution already running, avoid double spawn
+        if getgenv().AutoFishingRunning then
+            -- There is already a running loop (external). We'll not spawn a second loop.
+            -- Instead we'll switch to "control mode" that requests stop on click.
+            externalLabel.Text = "Auto Fishing already running elsewhere. Use Stop to request stop."
+            startBtn.Text = "⏸ Stop Auto Fish (Running)"
+            return
+        end
+
+        -- start local control
         isFishing = true
         startTime = tick()
         fishCount = 0
@@ -338,7 +425,20 @@ local function buildMain()
         startBtn.Text = "⏸ Stop Auto Fish"
         print("🎣 Auto Fishing started for " .. player.Name)
 
+        -- set persistent flags
+        pcall(function()
+            getgenv().AutoFishingRunning = true
+            getgenv().AutoFishingStopRequested = false
+        end)
+        saveState()
+
         while isFishing do
+            -- check global stop requests
+            if getgenv().AutoFishingStopRequested then
+                isFishing = false
+                break
+            end
+
             pcall(function()
                 if net["RF/ChargeFishingRod"] then
                     net["RF/ChargeFishingRod"]:InvokeServer(workspace:GetServerTimeNow())
@@ -366,15 +466,52 @@ local function buildMain()
             end)
         end
 
+        -- cleanup on stop
+        isFishing = false
+        pcall(function() getgenv().AutoFishingRunning = false end)
+        pcall(function() getgenv().AutoFishingStopRequested = false end)
+        saveState()
+
         startBtn.Text = "▶ Start Auto Fish"
+        externalLabel.Text = ""
         print("🛑 Auto Fishing stopped.")
     end
 
     -- connect buttons
     startBtn.MouseButton1Click:Connect(function()
+        -- If there exists a running external loop, clicking the button will request it to stop
+        if getgenv().AutoFishingRunning and not isFishing then
+            -- request external loop to stop
+            getgenv().AutoFishingStopRequested = true
+            externalLabel.Text = "Stop requested... waiting for external loop to end."
+            -- poll until external loop clears (with timeout fallback)
+            spawn(function()
+                local waited = 0
+                while getgenv().AutoFishingRunning and waited < 8 do
+                    task.wait(0.5)
+                    waited = waited + 0.5
+                end
+                if not getgenv().AutoFishingRunning then
+                    externalLabel.Text = "External loop stopped. You can Start again."
+                    startBtn.Text = "▶ Start Auto Fish"
+                    saveState()
+                else
+                    externalLabel.Text = "External loop did not stop? You can Force Stop."
+                    startBtn.Text = "Force Stop"
+                end
+            end)
+            return
+        end
+
         if isFishing then
+            -- local stop
             isFishing = false
+            getgenv().AutoFishingStopRequested = true
+            getgenv().AutoFishingRunning = false
+            saveState()
+            startBtn.Text = "▶ Start Auto Fish"
         else
+            -- start new local loop
             spawn(AutoFishLoop)
         end
     end)
@@ -443,29 +580,21 @@ local function buildTeleport()
 end
 
 -- ===== Build Settings Tab (Anti-Lag) =====
--- Anti-lag system: hides Texture, Decal, SurfaceAppearance; modifies terrain water; stores old states to revert.
 local AntiLagState = {
     enabled = false,
-    modified = {}, -- array of {inst = Instance, prop = "Transparency" or "Enabled", old = value}
+    modified = {},
     terrainOld = nil
 }
 local descendantConnection = nil
 
 local function applyAntiLagToDescendant(v)
     if not v or not v:IsDescendantOf(game) then return end
-    -- Textures / Decal: set Transparency = 1 (store old)
     if v:IsA("Texture") or v:IsA("Decal") then
         if v.Transparency ~= 1 then
             table.insert(AntiLagState.modified, {inst = v, prop = "Transparency", old = v.Transparency})
             pcall(function() v.Transparency = 1 end)
         end
     elseif v:IsA("SurfaceAppearance") then
-        -- SurfaceAppearance has Enabled? Not standard — use Transparency/Color properties if exists; simplest: set Parent to nil? Avoid destructive actions.
-        -- We will set the instance's Parent to itself? Safer: set its Transparency to 1 if has property, else set Enabled false if property exists.
-        if v:FindFirstChild("Transparency") then
-            -- probably not the case
-        end
-        -- try to set v.Enabled = false if exists
         local success, _ = pcall(function()
             if v.Enabled ~= nil then
                 table.insert(AntiLagState.modified, {inst = v, prop = "Enabled", old = v.Enabled})
@@ -479,11 +608,9 @@ local function enableAntiLag()
     if AntiLagState.enabled then return end
     AntiLagState.enabled = true
     AntiLagState.modified = {}
-    -- iterate existing
     for _,v in ipairs(workspace:GetDescendants()) do
         applyAntiLagToDescendant(v)
     end
-    -- terrain water store & modify
     local terrain = workspace:FindFirstChildOfClass("Terrain")
     if terrain then
         local old = {
@@ -500,7 +627,6 @@ local function enableAntiLag()
             terrain.WaterWaveSpeed = 0
         end)
     end
-    -- connect new descendants
     descendantConnection = workspace.DescendantAdded:Connect(function(v)
         if not AntiLagState.enabled then return end
         applyAntiLagToDescendant(v)
@@ -511,7 +637,6 @@ end
 local function disableAntiLag()
     if not AntiLagState.enabled then return end
     AntiLagState.enabled = false
-    -- revert modifications
     for _, rec in ipairs(AntiLagState.modified) do
         pcall(function()
             if rec.inst and rec.inst.Parent then
@@ -524,7 +649,6 @@ local function disableAntiLag()
         end)
     end
     AntiLagState.modified = {}
-    -- revert terrain
     local terrain = workspace:FindFirstChildOfClass("Terrain")
     if terrain and AntiLagState.terrainOld then
         pcall(function()
@@ -616,7 +740,7 @@ local function buildInfo()
     credit.Size = UDim2.new(1,0,0,120)
     credit.Position = UDim2.new(0,0,0,6)
     credit.BackgroundTransparency = 1
-    credit.Text = "Auto Fishing (Rimuru UI)\n\nScript by bubub 😎\n\nFeatures:\n• Rimuru-style anime UI\n• Sidebar tabs: Main, Player, Teleport, Settings, Info\n• Anti-Lag (disables textures/decals & terrain water)\n• Auto Fishing: Start/Stop, delay, timer, counter\n\nUse responsibly."
+    credit.Text = "Auto Fishing (Rimuru UI)\n\nScript by bubub 😎\n\nFeatures:\n• Rimuru-style anime UI\n• Sidebar tabs: Main, Player, Teleport, Settings, Info\n• Anti-Lag (disables textures/decals & terrain water)\n• Auto Fishing: Start/Stop, delay, timer, counter\n• Persistent state: detects running state across GUI open/close\n\nUse responsibly."
     credit.Font = Enum.Font.Gotham
     credit.TextColor3 = TEXT_COLOR
     credit.TextSize = 14
@@ -692,7 +816,6 @@ end)
 MiniBtn.MouseButton1Click:Connect(function()
     if minimized then return end
     MainFrame.Visible = false
-    -- show mini button when main visible toggled to false by rightshift maybe
     if not ScreenGui:FindFirstChild("RimuruMiniBtn") then
         local mini = Instance.new("ImageButton")
         mini.Name = "RimuruMiniBtn"
@@ -761,4 +884,4 @@ player.AncestryChanged:Connect(function(_, parent)
 end)
 
 -- End of script
-print("Auto Fishing Rimuru UI loaded ✅")
+print("Auto Fishing Rimuru UI loaded ✅ (persistence enabled)")
