@@ -1,4 +1,4 @@
--- Auto Fishing Rimuru UI v6 (by bubub) 🎣✨
+-- Auto Fishing Rimuru UI v3 (by bubub) 🎣✨
 -- Features: Rimuru aura, Main/Player/Teleport/Settings/Info tabs,
 -- Auto-save state (AutoFishing & AntiLag), WalkSpeed/JumpPower sliders,
 -- Noclip, Fly, Copy Player Position (setclipboard), Anti-Lag, and protections.
@@ -34,19 +34,21 @@ getgenv().AntiLagEnabled = getgenv().AntiLagEnabled or false
 local STATE_FILENAME = "autofish_state_v3.json"
 
 local function saveStateToFile(stateTable)
-    pcall(function()
-        if writefile and HttpService then
+    if writefile and HttpService then
+        pcall(function()
             writefile(STATE_FILENAME, HttpService:JSONEncode(stateTable))
-        end
-    end)
+        end)
+    end
 end
 
 local function loadStateFromFile()
-    local ok, content = pcall(function() return readfile and readfile(STATE_FILENAME) or nil end)
-    if ok and content and HttpService then
-        local suc, decoded = pcall(function() return HttpService:JSONDecode(content) end)
-        if suc and type(decoded) == "table" then
-            return decoded
+    if readfile and HttpService then
+        local ok, content = pcall(function() return readfile(STATE_FILENAME) end)
+        if ok and content then
+            local suc, decoded = pcall(function() return HttpService:JSONDecode(content) end)
+            if suc and type(decoded) == "table" then
+                return decoded
+            end
         end
     end
     return nil
@@ -63,6 +65,7 @@ local function saveState()
 end
 
 local function loadState()
+    -- prefer getgenv value if true, otherwise load file
     if getgenv().AutoFishingRunning then
         return { running = true, antilag = getgenv().AntiLagEnabled == true }
     end
@@ -91,8 +94,7 @@ ScreenGui.IgnoreGuiInset = true
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 500, 0, 360)
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)  -- Diubah: titik tengah di tengah layar
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)  -- Ditambahkan: anchor di tengah
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -180)
 MainFrame.BackgroundColor3 = BG_COLOR
 MainFrame.BackgroundTransparency = 0.18
 MainFrame.BorderSizePixel = 0
@@ -109,7 +111,7 @@ AuraContainer.Position = UDim2.new(0, -10, 0, -10)
 AuraContainer.BackgroundTransparency = 1
 AuraContainer.ZIndex = 0
 
--- create several blurred circles (frames) and animate alpha & scale loop
+-- create several blurred circles (frames) and animate alpha & rotation/scale loop
 local auraParts = {}
 for i=1,6 do
     local p = Instance.new("Frame", AuraContainer)
@@ -122,31 +124,34 @@ for i=1,6 do
     p.BackgroundTransparency = 0.95
     p.BorderSizePixel = 0
     p.ZIndex = 0
-    Instance.new("UICorner", p).CornerRadius = UDim.new(1,0)
+    local c = Instance.new("UICorner", p)
+    c.CornerRadius = UDim.new(1,0)
     local stroke = Instance.new("UIStroke", p)
     stroke.Color = ACCENT2
     stroke.Transparency = 0.9
     table.insert(auraParts, p)
 end
 
--- aura animation loop (fixed: removed invalid Rotation tween)
+-- aura animation loop
 spawn(function()
     while true do
         for i,p in ipairs(auraParts) do
-            if not p or not p:IsDescendantOf(MainFrame) then continue end
             local alpha = 0.92 - (i*0.07)
             p.BackgroundTransparency = 1
             p.UIStroke.Transparency = 0.95
-            local tween = TweenService:Create(p, TweenInfo.new(2.4 + i*0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = alpha})
+            tween = TweenService:Create(p, TweenInfo.new(2.4 + i*0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = alpha})
             tween:Play()
         end
-        task.wait(0.1)
+        wait(0.1)
         for i,p in ipairs(auraParts) do
-            if not p or not p:IsDescendantOf(MainFrame) then continue end
+            local r = (i%2==0) and 6 or -6
             local sizeMult = 1 + (i*0.02)
-            local tween = TweenService:Create(p, TweenInfo.new(6 + i*0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut, -1, true),
+            tween = TweenService:Create(p, TweenInfo.new(6 + i*0.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut, -1, true),
                 {Size = UDim2.new(0, p.Size.X.Offset * sizeMult, 0, p.Size.Y.Offset * sizeMult)})
             tween:Play()
+            tween = TweenService:Create(p, TweenInfo.new(8 + i*0.4, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1),
+                {Rotation = r* (i*2)})
+            -- Rotation property doesn't exist for Frame; to create subtle rotation, we skip it; kept for conceptual completeness.
         end
         task.wait(1.8)
     end
@@ -238,7 +243,6 @@ local function clearContent()
 end
 
 local function tweenObject(obj, props, t, style, dir)
-    if not obj or not obj:IsDescendantOf(ScreenGui) then return end
     local tw = TweenService:Create(obj, TweenInfo.new(t or 0.22, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out), props)
     tw:Play()
     return tw
@@ -251,26 +255,26 @@ local net = nil
 do
     local ok, nres = pcall(function()
         return ReplicatedStorage
-            :WaitForChild("Packages", 5)
-            :WaitForChild("_Index", 5)
-            :WaitForChild("sleitnick_net@0.2.0", 5)
-            :WaitForChild("net", 5)
+            :WaitForChild("Packages")
+            :WaitForChild("_Index")
+            :WaitForChild("sleitnick_net@0.2.0")
+            :WaitForChild("net")
     end)
-    if ok and nres then 
-        net = nres 
-    else
+    if ok and nres then net = nres else
         pcall(function() net = ReplicatedStorage:FindFirstChild("net") end)
     end
 end
 
-local REFishCaught = net and net["RE/FishCaught"]
-local REObtainedNewFishNotification = net and net["RE/ObtainedNewFishNotification"]
+local REFishCaught = net and net["RE/FishCaught"] or nil
+local REObtainedNewFishNotification = net and net["RE/ObtainedNewFishNotification"] or nil
 
 -- disable default notifications if possible
-if REObtainedNewFishNotification and getconnections then
+if REObtainedNewFishNotification then
     pcall(function()
-        for _, conn in pairs(getconnections(REObtainedNewFishNotification.OnClientEvent) or {}) do
-            pcall(function() conn:Disable() end)
+        if getconnections then
+            for _, conn in pairs(getconnections(REObtainedNewFishNotification.OnClientEvent) or {}) do
+                pcall(function() conn:Disable() end)
+            end
         end
     end)
 end
@@ -282,7 +286,7 @@ local AntiLagState = { enabled = false, modified = {}, terrainOld = nil }
 local descendantConnection = nil
 
 local function applyAntiLagToDescendant(v)
-    if not v or not v:IsDescendantOf(workspace) then return end
+    if not v or not v:IsDescendantOf(game) then return end
     if v:IsA("Texture") or v:IsA("Decal") then
         if v.Transparency ~= 1 then
             table.insert(AntiLagState.modified, {inst = v, prop = "Transparency", old = v.Transparency})
@@ -302,11 +306,9 @@ local function enableAntiLag()
     if AntiLagState.enabled then return end
     AntiLagState.enabled = true
     AntiLagState.modified = {}
-    pcall(function()
-        for _,v in ipairs(workspace:GetDescendants()) do
-            applyAntiLagToDescendant(v)
-        end
-    end)
+    for _,v in ipairs(workspace:GetDescendants()) do
+        applyAntiLagToDescendant(v)
+    end
     local terrain = workspace:FindFirstChildOfClass("Terrain")
     if terrain then
         local old = {
@@ -324,9 +326,8 @@ local function enableAntiLag()
         end)
     end
     descendantConnection = workspace.DescendantAdded:Connect(function(v)
-        if AntiLagState.enabled then
-            applyAntiLagToDescendant(v)
-        end
+        if not AntiLagState.enabled then return end
+        applyAntiLagToDescendant(v)
     end)
     getgenv().AntiLagEnabled = true
     saveState()
@@ -369,6 +370,9 @@ local function attemptInvoke(fn, ...)
         if fn then fn(...) end
     end)
 end
+
+-- local variables to be created inside buildMain for UI refs; but we need some global persistent control flags to avoid double loops
+-- We'll implement AutoFish loop inside buildMain but controlled by getgenv flags.
 
 -- ---------------------------
 -- Player utilities (Noclip, Fly, WalkSpeed, JumpPower)
@@ -788,7 +792,7 @@ local function buildPlayer()
 
     -- JumpPower slider
     local jpLabel = Instance.new("TextLabel", cont)
-    jpLabel.Size = UDim2.new(1,0,0,18
+    jpLabel.Size = UDim2.new(1,0,0,18)
     jpLabel.Position = UDim2.new(0,0,0,62)
     jpLabel.BackgroundTransparency = 1
     jpLabel.Text = "JumpPower: 50"
@@ -1198,8 +1202,7 @@ CloseBtn.MouseButton1Click:Connect(function()
         local mini = Instance.new("ImageButton")
         mini.Name = "RimuruMiniBtn_v3"
         mini.Size = UDim2.new(0, 62, 0, 62)
-        mini.Position = UDim2.new(0.5, 0, 0.5, 0)  -- Diubah: di tengah layar
-        mini.AnchorPoint = Vector2.new(0.5, 0.5)  -- Ditambahkan: anchor di tengah
+        mini.Position = UDim2.new(1, -96, 1, -150)
         mini.BackgroundColor3 = Color3.fromRGB(10,18,26)
         mini.AutoButtonColor = true
         mini.Parent = ScreenGui
@@ -1228,8 +1231,7 @@ MiniBtn.MouseButton1Click:Connect(function()
         local mini = Instance.new("ImageButton")
         mini.Name = "RimuruMiniBtn_v3"
         mini.Size = UDim2.new(0, 62, 0, 62)
-        mini.Position = UDim2.new(0.5, 0, 0.5, 0)  -- Diubah: di tengah layar
-        mini.AnchorPoint = Vector2.new(0.5, 0.5)  -- Ditambahkan: anchor di tengah
+        mini.Position = UDim2.new(1, -96, 1, -150)
         mini.BackgroundColor3 = Color3.fromRGB(10,18,26)
         mini.AutoButtonColor = true
         mini.Parent = ScreenGui
@@ -1263,10 +1265,10 @@ local function adjustForScreen()
     local sg = workspace.CurrentCamera.ViewportSize
     if sg.X < 900 then
         MainFrame.Size = UDim2.new(0, 420, 0, 340)
-        -- Position tetap UDim2.new(0.5, 0, 0.5, 0) karena AnchorPoint sudah centering
+        MainFrame.Position = UDim2.new(0.5, -210, 0.5, -170)
     else
         MainFrame.Size = UDim2.new(0, 500, 0, 360)
-        -- Position tetap UDim2.new(0.5, 0, 0.5, 0)
+        MainFrame.Position = UDim2.new(0.5, -250, 0.5, -180)
     end
 end
 adjustForScreen()
