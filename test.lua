@@ -1,4 +1,4 @@
--- Auto Fishing Rimuru UI v5 (by bubub) 🎣✨
+-- Auto Fishing Rimuru UI v6 (by bubub) 🎣✨
 -- Features: Rimuru aura, Main/Player/Teleport/Settings/Info tabs,
 -- Auto-save state (AutoFishing & AntiLag), WalkSpeed/JumpPower sliders,
 -- Noclip, Fly, Copy Player Position (setclipboard), Anti-Lag, and protections.
