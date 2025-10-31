@@ -864,11 +864,11 @@ tweenObject(MainFrame, {BackgroundTransparency = 0.15, Position = UDim2.new(0.5,
 local function adjustForScreen()
     local sg = workspace.CurrentCamera.ViewportSize
     if sg.X < 900 then
-        MainFrame.Size = UDim2.new(0, 420, 0, 300)
-        MainFrame.Position = UDim2.new(0.5, -210, 0.5, -150)
+        MainFrame.Size = UDim2.new(0, 420, 0, 340)
+        -- Position tetap UDim2.new(0.5, 0, 0.5, 0) karena AnchorPoint sudah centering
     else
-        MainFrame.Size = UDim2.new(0, 500, 0, 320)
-        MainFrame.Position = UDim2.new(0.5, -250, 0.5, -160)
+        MainFrame.Size = UDim2.new(0, 500, 0, 360)
+        -- Position tetap UDim2.new(0.5, 0, 0.5, 0)
     end
 end
 adjustForScreen()
