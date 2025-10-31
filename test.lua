@@ -1197,7 +1197,8 @@ CloseBtn.MouseButton1Click:Connect(function()
         local mini = Instance.new("ImageButton")
         mini.Name = "RimuruMiniBtn_v3"
         mini.Size = UDim2.new(0, 62, 0, 62)
-        mini.Position = UDim2.new(1, -96, 1, -150)
+        mini.Position = UDim2.new(0.5, 0, 0.5, 0)  -- Diubah: di tengah layar
+        mini.AnchorPoint = Vector2.new(0.5, 0.5)  -- Ditambahkan: anchor di tengah
         mini.BackgroundColor3 = Color3.fromRGB(10,18,26)
         mini.AutoButtonColor = true
         mini.Parent = ScreenGui
@@ -1226,7 +1227,8 @@ MiniBtn.MouseButton1Click:Connect(function()
         local mini = Instance.new("ImageButton")
         mini.Name = "RimuruMiniBtn_v3"
         mini.Size = UDim2.new(0, 62, 0, 62)
-        mini.Position = UDim2.new(1, -96, 1, -150)
+        mini.Position = UDim2.new(0.5, 0, 0.5, 0)  -- Diubah: di tengah layar
+        mini.AnchorPoint = Vector2.new(0.5, 0.5)  -- Ditambahkan: anchor di tengah
         mini.BackgroundColor3 = Color3.fromRGB(10,18,26)
         mini.AutoButtonColor = true
         mini.Parent = ScreenGui
